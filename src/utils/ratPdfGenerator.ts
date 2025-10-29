@@ -1,11 +1,4 @@
-import {
-  PDFDocument,
-  PDFPage,
-  PDFFont,
-  PDFTextField,
-  StandardFonts,
-  rgb,
-} from "pdf-lib";
+import { PDFDocument, PDFPage, PDFFont, PDFTextField, StandardFonts } from "pdf-lib";
 import ratTemplateUrl from "../assets/rat-template.pdf?url";
 import { RatFormData } from "../types/rat";
 import { origemEquipamentoOptions } from "../data/ratOptions";
@@ -58,21 +51,47 @@ const formatDateBr = (value?: string) => {
 
 const normalizeHour = (hour?: string) => (hour ? hour.replace(/\s+/g, "") : hour);
 
-const drawMark = (
+interface DrawWrappedTextOptions {
+  x: number;
+  y: number;
+  maxWidth: number;
+  lineHeight: number;
+  size?: number;
+}
+
+const drawWrappedText = (
   page: PDFPage,
   font: PDFFont,
-  pageHeight: number,
-  x: number,
-  yFromTop: number,
-  size = 12,
+  text: string | undefined,
+  { x, y, maxWidth, lineHeight, size = 10 }: DrawWrappedTextOptions,
 ) => {
-  page.drawText("X", {
+  const safeText = text?.trim();
+  if (!safeText) {
+    return;
+  }
+
+  page.drawText(safeText.replace(/\r\n/g, "\n"), {
     x,
-    y: pageHeight - yFromTop,
+    y,
     size,
     font,
-    color: rgb(0, 0, 0),
+    maxWidth,
+    lineHeight,
   });
+};
+
+const descricaoProblemaArea = {
+  x: 29.28,
+  top: 387.924,
+  bottom: 347.04,
+  width: 551.88,
+};
+
+const solucaoAplicadaArea = {
+  x: 29.28,
+  top: 215.76,
+  bottom: 195,
+  width: 551.88,
 };
 
 export const generateRatPDF = async (formData: RatFormData) => {
@@ -83,8 +102,7 @@ export const generateRatPDF = async (formData: RatFormData) => {
     const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
     const form = pdfDoc.getForm();
     const page = pdfDoc.getPages()[0];
-    const pageHeight = page.getHeight();
-    const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
     // Limpa qualquer valor pré-existente no template antes de preencher
     try {
@@ -142,14 +160,6 @@ export const generateRatPDF = async (formData: RatFormData) => {
     
     // PEÇAS IMPRESSORA - Removido
 
-    // MAU USO
-    const mauUsoMarkYFromTop = 322;
-    if (formData.mauUso === "sim") {
-      drawMark(page, font, pageHeight, 407, mauUsoMarkYFromTop);
-    } else if (formData.mauUso === "nao") {
-      drawMark(page, font, pageHeight, 480, mauUsoMarkYFromTop);
-    }
-
     // OBSERVAÇÕES PEÇAS
     const observacoesLines = splitLines(formData.observacoesPecas, 3);
     setTextSafe(form, "Row1", observacoesLines[0] ?? "");
@@ -157,9 +167,17 @@ export const generateRatPDF = async (formData: RatFormData) => {
     setTextSafe(form, "Row3", observacoesLines[2] ?? "");
 
     // DEFEITO/PROBLEMA
-    const defeitoLines = splitLines(formData.defeitoProblema, 2);
-    setTextSafe(form, "DefeitoProblemaRow1", defeitoLines[0] ?? "");
-    setTextSafe(form, "DefeitoProblemaRow2", defeitoLines[1] ?? "");
+    const descricaoProblema = formData.descricaoProblema ?? formData.defeitoProblema;
+    drawWrappedText(page, font, descricaoProblema, {
+      x: descricaoProblemaArea.x,
+      y: descricaoProblemaArea.top - 10,
+      maxWidth: descricaoProblemaArea.width,
+      lineHeight: 12,
+    });
+
+    // Limpa os campos antigos caso existam no template
+    setTextSafe(form, "DefeitoProblemaRow1", "");
+    setTextSafe(form, "DefeitoProblemaRow2", "");
 
     // DIAGNÓSTICO/TESTES
     const diagnosticoLines = splitLines(formData.diagnosticoTestes, 4);
@@ -169,8 +187,14 @@ export const generateRatPDF = async (formData: RatFormData) => {
     setTextSafe(form, "DiagnósticoTestesrealizadosRow4", diagnosticoLines[3] ?? "");
 
     // SOLUÇÃO
-    const solucaoLines = splitLines(formData.solucao, 1);
-    setTextSafe(form, "SoluçãoRow1", solucaoLines[0] ?? "");
+    const solucaoAplicada = formData.solucaoAplicada ?? formData.solucao;
+    drawWrappedText(page, font, solucaoAplicada, {
+      x: solucaoAplicadaArea.x,
+      y: solucaoAplicadaArea.top - 10,
+      maxWidth: solucaoAplicadaArea.width,
+      lineHeight: 12,
+    });
+    setTextSafe(form, "SoluçãoRow1", "");
 
     // PROBLEMA RESOLVIDO
     if (formData.problemaResolvido === "sim") {
