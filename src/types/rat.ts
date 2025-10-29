@@ -16,11 +16,12 @@ export interface RatFormData {
   equipNovoRecond: string;
   marcaTroca: string;
   modeloTroca: string;
-  mauUso: string;
   observacoesPecas: string;
   defeitoProblema: string;
+  descricaoProblema?: string;
   diagnosticoTestes: string;
   solucao: string;
+  solucaoAplicada?: string;
   problemaResolvido: string;
   motivoNaoResolvido: string;
   haveraRetorno: string;
