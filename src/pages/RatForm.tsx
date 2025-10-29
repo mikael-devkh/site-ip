@@ -22,7 +22,7 @@ import { Navigation } from "../components/Navigation";
 import { RatHistoryList, RatHistoryEntry } from "../components/RatHistoryList";
 import { FileText, History, Printer, RotateCcw, Wand2 } from "lucide-react";
 import { toast } from "sonner";
-import { generateRatPDF } from "../utils/ratPdfGenerator";
+import { generateRatPdf } from "../utils/ratPdfGenerator";
 import { RatFormData } from "../types/rat";
 import {
   cloneRatFormData,
@@ -232,7 +232,7 @@ const RatForm = () => {
 
   const handleGeneratePDF = async () => {
     try {
-      await generateRatPDF(formData);
+      await generateRatPdf(formData);
       setRatHistory((previous) => {
         const entry: RatHistoryEntry = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -537,29 +537,6 @@ const RatForm = () => {
                             </div>
                           </div>
                         )}
-
-                        <div className="space-y-2">
-                          <Label>Mau Uso?</Label>
-                          <RadioGroup
-                            value={formData.mauUso}
-                            onValueChange={(value) => setFormData({ ...formData, mauUso: value })}
-                          >
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                              <div className="flex items-center gap-2">
-                                <RadioGroupItem value="sim" id="mau-uso-sim" />
-                                <Label htmlFor="mau-uso-sim" className="cursor-pointer">
-                                  Sim
-                                </Label>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <RadioGroupItem value="nao" id="mau-uso-nao" />
-                                <Label htmlFor="mau-uso-nao" className="cursor-pointer">
-                                  Não
-                                </Label>
-                              </div>
-                            </div>
-                          </RadioGroup>
-                        </div>
 
                         <div className="space-y-2">
                           <Label htmlFor="observacoesPecas">Observações</Label>
