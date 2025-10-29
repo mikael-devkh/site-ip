@@ -1,0 +1,25 @@
+import React from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { Navigation } from "@/components/Navigation";
+import RatForm from "@/pages/RatForm";  // ajuste o caminho se o seu for diferente
+import IpTool from "@/pages/IpTool";
+
+export default function App() {
+  return (
+    <>
+      <Navigation />
+      <main className="min-h-screen bg-gradient-primary">
+        <div className="mx-auto max-w-5xl p-6">
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-glow">
+            <Routes>
+              <Route path="/" element={<Navigate to="/rat" replace />} />
+              <Route path="/rat" element={<RatForm />} />
+              <Route path="/ips" element={<IpTool />} />
+              <Route path="*" element={<Navigate to="/rat" replace />} />
+            </Routes>
+          </div>
+        </div>
+      </main>
+    </>
+  );
+}

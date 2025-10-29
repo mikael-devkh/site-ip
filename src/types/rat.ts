@@ -1,0 +1,36 @@
+export interface RatFormData {
+  codigoLoja: string;
+  pdv: string;
+  fsa: string;
+  endereco: string;
+  cidade: string;
+  uf: string;
+  nomeSolicitante: string;
+  serial: string;
+  patrimonio: string;
+  marca: string;
+  modelo: string;
+  houveTroca: string;
+  origemEquipamento: string;
+  numeroSerieTroca: string;
+  equipNovoRecond: string;
+  marcaTroca: string;
+  modeloTroca: string;
+  mauUso: string;
+  observacoesPecas: string;
+  defeitoProblema: string;
+  diagnosticoTestes: string;
+  solucao: string;
+  problemaResolvido: string;
+  motivoNaoResolvido: string;
+  haveraRetorno: string;
+  horaInicio: string;
+  horaTermino: string;
+  data: string;
+  clienteNome: string;
+  clienteRgMatricula: string;
+  clienteTelefone: string;
+  prestadorNome: string;
+  prestadorRgMatricula: string;
+  prestadorTelefone: string;
+}
