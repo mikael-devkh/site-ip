@@ -22,7 +22,7 @@ import { Navigation } from "../components/Navigation";
 import { RatHistoryList, RatHistoryEntry } from "../components/RatHistoryList";
 import { FileText, History, Printer, RotateCcw, Wand2 } from "lucide-react";
 import { toast } from "sonner";
-import { generateRatPDF } from "../utils/ratPdfGenerator";
+import { generateRatPdf } from "../utils/ratPdfGenerator";
 import { RatFormData } from "../types/rat";
 import {
   cloneRatFormData,
@@ -232,7 +232,7 @@ const RatForm = () => {
 
   const handleGeneratePDF = async () => {
     try {
-      await generateRatPDF(formData);
+      await generateRatPdf(formData);
       setRatHistory((previous) => {
         const entry: RatHistoryEntry = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
