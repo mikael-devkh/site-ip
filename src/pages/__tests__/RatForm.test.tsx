@@ -32,7 +32,7 @@ vi.mock("../../context/AuthContext", () => ({
 }));
 
 vi.mock("../../utils/ratPdfGenerator", () => ({
-  generateRatPDF: vi.fn().mockResolvedValue(undefined),
+  generateRatPdf: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("sonner", () => ({
