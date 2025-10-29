@@ -1,12 +1,12 @@
 // src/utils/ratPdfGenerator.ts
 
-import { PDFDocument, PDFForm } from "pdf-lib";
-import { RatFormData } from "../types/rat";
-import templatePdf from "../assets/rat-template.pdf?url";
+import { PDFDocument, PDFForm } from 'pdf-lib';
+import { RatFormData } from '../types/rat';
+import templatePdf from '../assets/rat-template.pdf?url';
 
 function downloadPdf(pdfBytes: Uint8Array, fileName: string) {
-  const blob = new Blob([pdfBytes], { type: "application/pdf" });
-  const link = document.createElement("a");
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+  const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   link.download = fileName;
   document.body.appendChild(link);
@@ -17,17 +17,10 @@ function downloadPdf(pdfBytes: Uint8Array, fileName: string) {
 
 function safeSetText(form: PDFForm, fieldName: string, value: unknown) {
   try {
-    const textValue = String(value ?? "");
-    if (textValue.trim() === "") {
-      console.warn(`Campo [${fieldName}] está vazio ou nulo.`);
-      return;
-    }
-
     const field = form.getTextField(fieldName);
-    field.setText(textValue);
-    console.log(`Campo [${fieldName}] preenchido com: "${textValue}"`);
+    field.setText(String(value ?? ''));
   } catch (error) {
-    console.error(`Falha ao preencher o campo [${fieldName}]. Ele existe no PDF?`, error);
+    console.error(`(safeSetText) Campo [${fieldName}] NÃO ENCONTRADO no PDF.`);
   }
 }
 
@@ -35,67 +28,78 @@ function safeCheck(form: PDFForm, fieldName: string) {
   try {
     const field = form.getCheckBox(fieldName);
     field.check();
-    console.log(`Checkbox [${fieldName}] marcado.`);
   } catch (error) {
-    console.error(`Falha ao marcar o checkbox [${fieldName}]. Ele existe no PDF?`, error);
+    console.error(`(safeCheck) Campo [${fieldName}] NÃO ENCONTRADO no PDF.`);
   }
 }
 
 function fillFormFields(form: PDFForm, data: RatFormData) {
-  console.log("Iniciando preenchimento com a estrutura de dados CORRETA (FLAT)...");
+  console.log('Iniciando preenchimento (Método de Referência)...');
 
-  safeSetText(form, "Codigo Loja", data.codigoLoja);
-  safeSetText(form, "PDV", data.pdv);
-  safeSetText(form, "FSA", data.fsa);
-  safeSetText(form, "Endereco", data.endereco);
-  safeSetText(form, "Cidade", data.cidade);
-  safeSetText(form, "UF", data.uf);
-  safeSetText(form, "Nome do solicitante", data.nomeSolicitante);
+  safeSetText(form, 'Cliente', data.cliente);
+  safeSetText(form, 'CódigodaLoja', data.codigoLoja);
+  safeSetText(form, 'PDV', data.pdv);
+  safeSetText(form, 'FSA', data.fsa);
+  safeSetText(form, 'Endereço', data.endereco);
+  safeSetText(form, 'Cidade', data.cidade);
+  safeSetText(form, 'UF', data.uf);
+  safeSetText(form, 'Nom do solicitante', data.nomeSolicitante);
 
-  safeSetText(form, "Equip com defeito", data.defeitoProblema);
-  safeSetText(form, "Marca", data.marca);
-  safeSetText(form, "Modelo", data.modelo);
-  safeSetText(form, "Patrimonio", data.patrimonio);
-  safeSetText(form, "Numero Série ATIVO", data.serial);
-  safeSetText(form, "Equip NovoRecond", data.origemEquipamento);
-
-  if (data.houveTroca && data.houveTroca.toLowerCase().includes("sim")) {
-    console.log("Houve troca, preenchendo campos de equipamento de troca...");
-    safeSetText(form, "Numero Série Troca", data.numeroSerieTroca);
-    safeSetText(form, "Marca_2", data.marcaTroca);
-    safeSetText(form, "Modelo_2", data.modeloTroca);
-    safeSetText(form, "Equip NovoRecond_2", data.equipNovoRecond);
-  } else {
-    console.log("Não houve troca, campos de troca permanecerão em branco.");
+  if (data.equipamentos && Array.isArray(data.equipamentos)) {
+    data.equipamentos.forEach((equipName) => {
+      safeCheck(form, equipName);
+    });
   }
 
-  const laudoTecnico = `
-DIAGNÓSTICO E TESTES:
-${data.diagnosticoTestes || "Não informado."}
+  if (data.equipamentoDefeito) {
+    safeSetText(form, 'Equip com defeito', data.equipamentoDefeito.descricao);
+    safeSetText(form, 'Marca', data.equipamentoDefeito.marca);
+    safeSetText(form, 'Modelo', data.equipamentoDefeito.modelo);
+    safeSetText(form, 'Patrimônio', data.equipamentoDefeito.patrimonio);
+    safeSetText(form, 'Número Série ATIVO', data.equipamentoDefeito.numeroSerie);
+    safeSetText(form, 'Equip NovoRecond', data.equipamentoDefeito.tipo);
+  }
 
-SOLUÇÃO APLICADA:
-${data.solucao || "Não informado."}
-  `;
-  safeSetText(form, "Laudo Técnico", laudoTecnico.trim());
-  safeSetText(form, "Observações", data.observacoesPecas);
+  if (data.equipamentoTroca) {
+    safeSetText(form, 'Número Série Troca', data.equipamentoTroca.numeroSerie);
+    safeSetText(form, 'Marca_2', data.equipamentoTroca.marca);
+    safeSetText(form, 'Modelo_2', data.equipamentoTroca.modelo);
+    safeSetText(form, 'Equip NovoRecond_2', data.equipamentoTroca.tipo);
+  }
 
-  safeSetText(form, "Nome Técnico", data.prestadorNome);
-  safeSetText(form, "Técnico Alocado", data.prestadorNome);
-  safeSetText(form, "Data", data.data);
-  safeSetText(form, "Hora Inicial", data.horaInicio);
-  safeSetText(form, "Hora Final", data.horaTermino);
+  if (data.pecasCabos && Array.isArray(data.pecasCabos)) {
+    data.pecasCabos.forEach((pecaName) => {
+      safeCheck(form, pecaName);
+    });
+  }
 
-  safeSetText(form, "Aceite Cliente", data.clienteNome);
-  safeSetText(form, "CPF", data.clienteRgMatricula);
-  safeSetText(form, "E-mail", "");
+  safeSetText(form, 'Laudo Técnico', data.laudoTecnico);
+  safeSetText(form, 'Observações', data.observacoes);
 
-  console.log("Preenchimento dos campos finalizado.");
+  safeSetText(form, 'Nome Técnico', data.nomeTecnico);
+  safeSetText(form, 'Data', data.dataAtendimento);
+  safeSetText(form, 'Hora Inicial', data.horaInicial);
+  safeSetText(form, 'Hora Final', data.horaFinal);
+  safeSetText(form, 'Técnico Alocado', data.tecnicoAlocado);
+
+  safeSetText(form, 'Aceite Cliente', data.aceiteCliente);
+  safeSetText(form, 'CPF', data.cpfCliente);
+  safeSetText(form, 'E-mail', data.emailCliente);
+
+  if (data.custos) {
+    safeSetText(form, 'T-EXTRA', data.custos.tExtra);
+    safeSetText(form, 'KM-EXTRA', data.custos.kmExtra);
+    safeSetText(form, 'PEDÁGIO', data.custos.pedagio);
+    safeSetText(form, 'REFEIÇÃO', data.custos.refeicao);
+    safeSetText(form, 'ESTACIONAMENTO', data.custos.estacionamento);
+    safeSetText(form, 'OUTROS', data.custos.outros);
+  }
+
+  console.log('Preenchimento (Método de Referência) finalizado.');
 }
 
 export async function generateRatPdf(data: RatFormData) {
-  console.log("---------------------------------------");
-  console.log("Dados recebidos para gerar PDF:", JSON.stringify(data, null, 2));
-  console.log("---------------------------------------");
+  console.log('Iniciando Geração de PDF (Método de Referência)...');
 
   try {
     const existingPdfBytes = await fetch(templatePdf).then((res) => res.arrayBuffer());
@@ -104,11 +108,13 @@ export async function generateRatPdf(data: RatFormData) {
 
     fillFormFields(form, data);
 
-    const pdfBytes = await pdfDoc.save({ flatten: true });
-    const fileName = `RAT-${data.fsa || data.codigoLoja || "preenchida"}.pdf`;
+    const pdfBytes = await pdfDoc.save();
+
+    const fileName = `RAT-${data.fsa || data.codigoLoja || 'preenchida'}.pdf`;
     downloadPdf(pdfBytes, fileName);
+    console.log('Download do PDF (Método de Referência) iniciado.');
   } catch (error) {
-    console.error("Erro ao gerar o PDF da RAT:", error);
-    alert("Não foi possível gerar o PDF. Verifique o console (F12) para mais detalhes.");
+    console.error('Erro CRÍTICO ao gerar o PDF da RAT:', error);
+    alert('Não foi possível gerar o PDF. Verifique o console (F12) e confirme se TODOS os nomes de campos no código estão corretos.');
   }
 }
