@@ -1,225 +1,111 @@
-import {
-  PDFDocument,
-  PDFPage,
-  PDFFont,
-  PDFTextField,
-  StandardFonts,
-  rgb,
-} from "pdf-lib";
-import ratTemplateUrl from "../assets/rat-template.pdf?url";
+import { PDFDocument } from "pdf-lib";
 import { RatFormData } from "../types/rat";
-import { origemEquipamentoOptions } from "../data/ratOptions";
+import templatePdf from "../assets/rat-template.pdf?url";
 
-const log = (...args: any[]) => console.debug("[RAT]", ...args);
-
-// Helper para setar texto em campos do formulário
-function setTextSafe(form: any, fieldName: string, value?: string | null) {
-  const textValue = value === undefined || value === null ? "" : String(value);
-  try {
-    form.getTextField(fieldName).setText(textValue);
-  } catch {
-    if (!textValue) return;
-    try {
-      form.getDropdown(fieldName).select(textValue);
-    } catch {}
-  }
+function downloadPdf(pdfBytes: Uint8Array, fileName: string) {
+  const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
 }
 
-// Helper para dividir texto em linhas
-const splitLines = (text?: string, maxLines = 4) =>
-  (text ?? "")
-    .split(/\r?\n/)
-    .map((x) => x.trim())
-    .filter(Boolean)
-    .slice(0, maxLines);
-
-const getOrigemCodigo = (value?: string) => {
-  if (!value) return "";
-  const [codigo] = value.split("-");
-  return codigo?.trim() ?? "";
-};
-
-const formatDateBr = (value?: string) => {
-  if (!value) return "";
-  const [datePart] = value.split("T");
-  const match = datePart?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (match) {
-    const [, year, month, day] = match;
-    return `${day}/${month}/${year}`;
+function formatDate(value?: string) {
+  if (!value) {
+    return "";
   }
 
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return "";
+    return value;
   }
 
   return parsed.toLocaleDateString("pt-BR");
-};
+}
 
-const normalizeHour = (hour?: string) => (hour ? hour.replace(/\s+/g, "") : hour);
-
-const drawMark = (
-  page: PDFPage,
-  font: PDFFont,
-  pageHeight: number,
-  x: number,
-  yFromTop: number,
-  size = 12,
-) => {
-  page.drawText("X", {
-    x,
-    y: pageHeight - yFromTop,
-    size,
-    font,
-    color: rgb(0, 0, 0),
-  });
-};
-
-export const generateRatPDF = async (formData: RatFormData) => {
+function setTextField(form: any, fieldName: string, value?: string | null) {
   try {
-    log("Carregando template RAT...");
-    const pdfBytes = await fetch(ratTemplateUrl).then((res) => res.arrayBuffer());
-
-    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-    const form = pdfDoc.getForm();
-    const page = pdfDoc.getPages()[0];
-    const pageHeight = page.getHeight();
-    const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    // Limpa qualquer valor pré-existente no template antes de preencher
-    try {
-      form.getFields().forEach((field) => {
-        if (field instanceof PDFTextField) {
-          field.setText("");
-        }
-      });
-    } catch (e) {
-      log("Não foi possível limpar os campos do formulário:", e);
-    }
-
-    // IDENTIFICAÇÃO
-    setTextSafe(form, "CódigodaLoja", formData.codigoLoja);
-    setTextSafe(form, "PDV", formData.pdv);
-    setTextSafe(form, "FSA", formData.fsa);
-    setTextSafe(form, "Endereço", formData.endereco);
-    setTextSafe(form, "Cidade", formData.cidade);
-    setTextSafe(form, "UF", formData.uf);
-    setTextSafe(form, "Nomedosolicitante", formData.nomeSolicitante);
-
-    // EQUIPAMENTOS ENVOLVIDOS - Removido
-
-    // DADOS DO EQUIPAMENTO
-    setTextSafe(form, "Serial", formData.serial);
-    setTextSafe(form, "Patrimonio", formData.patrimonio);
-    setTextSafe(form, "Marca", formData.marca);
-    setTextSafe(form, "Modelo", formData.modelo);
-
-    const possuiTroca =
-      formData.houveTroca === "sim" || (!formData.houveTroca && !!formData.origemEquipamento);
-
-    if (possuiTroca) {
-      if (formData.origemEquipamento) {
-        const origemOption = origemEquipamentoOptions.find(
-          (option) => option.value === formData.origemEquipamento,
-        );
-        if (origemOption) {
-          setTextSafe(form, "Origem", getOrigemCodigo(origemOption.value));
-        } else if (formData.equipNovoRecond) {
-          setTextSafe(form, "Origem", formData.equipNovoRecond);
-        }
-      } else if (formData.equipNovoRecond) {
-        setTextSafe(form, "Origem", formData.equipNovoRecond);
-      }
-
-      if (formData.numeroSerieTroca) {
-        setTextSafe(form, "SerialNovo", formData.numeroSerieTroca);
-      }
-      setTextSafe(form, "MarcaNovo", formData.marcaTroca);
-      setTextSafe(form, "ModeloNovo", formData.modeloTroca);
-    }
-
-    // PEÇAS/CABOS - Removido
-    
-    // PEÇAS IMPRESSORA - Removido
-
-    // MAU USO
-    const mauUsoMarkYFromTop = 322;
-    if (formData.mauUso === "sim") {
-      drawMark(page, font, pageHeight, 407, mauUsoMarkYFromTop);
-    } else if (formData.mauUso === "nao") {
-      drawMark(page, font, pageHeight, 480, mauUsoMarkYFromTop);
-    }
-
-    // OBSERVAÇÕES PEÇAS
-    const observacoesLines = splitLines(formData.observacoesPecas, 3);
-    setTextSafe(form, "Row1", observacoesLines[0] ?? "");
-    setTextSafe(form, "Row2", observacoesLines[1] ?? "");
-    setTextSafe(form, "Row3", observacoesLines[2] ?? "");
-
-    // DEFEITO/PROBLEMA
-    const defeitoLines = splitLines(formData.defeitoProblema, 2);
-    setTextSafe(form, "DefeitoProblemaRow1", defeitoLines[0] ?? "");
-    setTextSafe(form, "DefeitoProblemaRow2", defeitoLines[1] ?? "");
-
-    // DIAGNÓSTICO/TESTES
-    const diagnosticoLines = splitLines(formData.diagnosticoTestes, 4);
-    setTextSafe(form, "DiagnósticoTestesrealizadosRow1", diagnosticoLines[0] ?? "");
-    setTextSafe(form, "DiagnósticoTestesrealizadosRow2", diagnosticoLines[1] ?? "");
-    setTextSafe(form, "DiagnósticoTestesrealizadosRow3", diagnosticoLines[2] ?? "");
-    setTextSafe(form, "DiagnósticoTestesrealizadosRow4", diagnosticoLines[3] ?? "");
-
-    // SOLUÇÃO
-    const solucaoLines = splitLines(formData.solucao, 1);
-    setTextSafe(form, "SoluçãoRow1", solucaoLines[0] ?? "");
-
-    // PROBLEMA RESOLVIDO
-    if (formData.problemaResolvido === "sim") {
-      setTextSafe(form, "SimProblemaresolvido", "X");
-    } else if (formData.problemaResolvido === "nao") {
-      setTextSafe(form, "NãoProblemaresolvido", "X");
-      setTextSafe(form, "Motivo", formData.motivoNaoResolvido);
-    }
-
-    // HAVERÁ RETORNO
-    if (formData.haveraRetorno === "sim") {
-      setTextSafe(form, "SimHaveráretorno", "X");
-    } else if (formData.haveraRetorno === "nao") {
-      setTextSafe(form, "NãoHaveráretorno", "X");
-    }
-
-    // HORÁRIOS E DATA
-    setTextSafe(form, "Horainício", normalizeHour(formData.horaInicio));
-    setTextSafe(form, "Horatérmino", normalizeHour(formData.horaTermino));
-    
-    setTextSafe(form, "DATA", formatDateBr(formData.data));
-
-    // CLIENTE
-    setTextSafe(form, "NOMELEGÍVEL", formData.clienteNome);
-    setTextSafe(form, "RGOUMATRÍCULA", formData.clienteRgMatricula);
-    setTextSafe(form, "TELEFONE", formData.clienteTelefone);
-
-    // PRESTADOR
-    setTextSafe(form, "NOMELEGÍVEL_2", formData.prestadorNome);
-    setTextSafe(form, "MATRÍCULA", formData.prestadorRgMatricula);
-    setTextSafe(form, "TELEFONE_2", formData.prestadorTelefone);
-
-    // Achatar o formulário para tornar os campos não-editáveis
-    try {
-      form.flatten();
-    } catch (e) {
-      log("Não foi possível achatar o formulário:", e);
-    }
-
-    // Salvar e abrir PDF
-    const bytes = await pdfDoc.save();
-    const blob = new Blob([new Uint8Array(Array.from(bytes)).buffer], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank");
-    
-    log("PDF gerado com sucesso!");
-    return { url };
+    const field = form.getTextField(fieldName);
+    field.setText(value ?? "");
   } catch (error) {
-    console.error("[RAT] Erro ao gerar PDF:", error);
-    throw error;
+    console.warn(`Campo de texto não encontrado: ${fieldName}`, error);
   }
-};
+}
+
+function setCheckBox(form: any, fieldName: string, checked: boolean) {
+  try {
+    const field = form.getCheckBox(fieldName);
+    if (checked) {
+      field.check();
+    } else {
+      field.uncheck();
+    }
+  } catch (error) {
+    console.warn(`Checkbox não encontrado: ${fieldName}`, error);
+  }
+}
+
+function fillFormFields(form: any, data: RatFormData) {
+  setTextField(form, "Cliente", data.clienteNome || "");
+  setTextField(form, "Codigo Loja", data.codigoLoja || "");
+  setTextField(form, "PDV", data.pdv || "");
+  setTextField(form, "FSA", data.fsa || "");
+  setTextField(form, "Endereco", data.endereco || "");
+  setTextField(form, "Cidade", data.cidade || "");
+  setTextField(form, "UF", data.uf || "");
+  setTextField(form, "Nome do solicitante", data.nomeSolicitante || "");
+
+  setTextField(form, "Equip com defeito", data.descricaoProblema || data.defeitoProblema || "");
+  setTextField(form, "Marca", data.marca || "");
+  setTextField(form, "Modelo", data.modelo || "");
+  setTextField(form, "Patrimonio", data.patrimonio || "");
+  setTextField(form, "Numero Série ATIVO", data.serial || "");
+  setTextField(form, "Equip NovoRecond", data.origemEquipamento || "");
+
+  setTextField(form, "Numero Série Troca", data.numeroSerieTroca || "");
+  setTextField(form, "Marca_2", data.marcaTroca || "");
+  setTextField(form, "Modelo_2", data.modeloTroca || "");
+  setTextField(form, "Equip NovoRecond_2", data.equipNovoRecond || "");
+
+  setTextField(form, "Laudo Técnico", data.diagnosticoTestes || "");
+  setTextField(form, "Observações", data.observacoesPecas || "");
+  setTextField(form, "Solução Aplicada", data.solucaoAplicada || data.solucao || "");
+
+  setCheckBox(form, "Problema Resolvido - Sim", data.problemaResolvido === "sim");
+  setCheckBox(form, "Problema Resolvido - Não", data.problemaResolvido === "nao");
+  setTextField(form, "Motivo Não Resolvido", data.motivoNaoResolvido || "");
+
+  setCheckBox(form, "Haverá Retorno - Sim", data.haveraRetorno === "sim");
+  setCheckBox(form, "Haverá Retorno - Não", data.haveraRetorno === "nao");
+
+  setTextField(form, "Hora Inicial", data.horaInicio || "");
+  setTextField(form, "Hora Final", data.horaTermino || "");
+  setTextField(form, "Data", formatDate(data.data));
+
+  setTextField(form, "Nome Técnico", data.prestadorNome || "");
+  setTextField(form, "Técnico Alocado", data.prestadorNome || "");
+
+  setTextField(form, "Aceite Cliente", data.clienteNome || "");
+  setTextField(form, "CPF", data.clienteRgMatricula || "");
+  setTextField(form, "E-mail", "");
+}
+
+export async function generateRatPdf(data: RatFormData) {
+  try {
+    const existingPdfBytes = await fetch(templatePdf).then((res) => res.arrayBuffer());
+    const pdfDoc = await PDFDocument.load(existingPdfBytes);
+    const form = pdfDoc.getForm();
+
+    fillFormFields(form, data);
+
+    const pdfBytes = await pdfDoc.save();
+    const fileName = `RAT-${data.fsa || data.codigoLoja || "preenchida"}.pdf`;
+    downloadPdf(pdfBytes, fileName);
+  } catch (error) {
+    console.error("Erro ao gerar o PDF da RAT:", error);
+    alert("Não foi possível gerar o PDF. Verifique o console para mais detalhes.");
+  }
+}
